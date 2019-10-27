@@ -1,4 +1,4 @@
-const bannerMessage = " *** Welcome to super console 0.01b ***"
+const bannerMessage = " *** Welcome to super console 0.01c ***"
 const inputAnimDT = 1000
 const prompt = "> "
 const fontSize = 14
@@ -16,6 +16,7 @@ class Console
         this.evalFn = evalFn
         this.inputAnimLastTime = 0
         this.inputAnimStr = ""
+        this.historyBrosweIndex = 0
     }
 
     ensureValidRegion(val) {
@@ -66,14 +67,32 @@ class Console
         this.regionEnd = -1
     }
 
+    browseHistory(val) {
+        this.historyBrosweIndex = Math.min(0, this.historyBrosweIndex + val)
+        const cmd = this.getCmd()
+        this.regionStart = cmd.length
+        this.regionEnd = -1
+    }
+
+    getCmd() {
+        if(this.historyBrosweIndex < 0) {
+            const validIndex = Math.max(0, this.history.length + this.historyBrosweIndex)
+            return this.history[validIndex]
+        } else {
+            return this.cmd
+        }
+    }
+
     evalCmd() {
-        this.history.push(this.cmd)
+        const cmd = this.getCmd()
+        this.history.push(cmd)
         if (this.evalFn) {
-            this.results.push(this.evalFn(this.cmd))
+            this.results.push(this.evalFn(cmd))
         } else {
             this.results.push([])
         }
         this.cmd = ""
+        this.historyBrosweIndex = 0
         this.regionStart = 0
         this.regionEnd = -1
     }
@@ -103,7 +122,7 @@ class Console
             context.fillText(prompt + this.history[i], 0, y)
             y += textHeightDelta
             if (Array.isArray(this.results[i])) {
-                this.results[i].forEach(result => {
+               this.results[i].forEach(result => {
                     context.fillText(r, 0, y)
                     y += textHeightDelta
                 })
@@ -112,16 +131,17 @@ class Console
                 y += textHeightDelta
             }
         }
-        const isRegionActive = this.cmd.length > 0 && (this.regionStart != this.cmd.length || this.regionEnd != -1)
+        const cmd = this.getCmd()
+        const isRegionActive = cmd.length > 0 && (this.regionStart != cmd.length || this.regionEnd != -1)
         
         
         if (isRegionActive) {
             const regionEndValid = this.regionEnd != -1
             const start = regionEndValid ? Math.min(this.regionStart, this.regionEnd) : this.regionStart
             const end = regionEndValid ? Math.max(this.regionStart, this.regionEnd) : this.regionStart+1
-            const prefix = prompt + this.cmd.substring(0, start)
-            const region = this.cmd.substring(start, end)
-            const postfix= this.cmd.substring(end, this.cmd.length)
+            const prefix = prompt + cmd.substring(0, start)
+            const region = cmd.substring(start, end)
+            const postfix= cmd.substring(end, cmd.length)
             let x = 0
             //console.log("start: "+start+" end: "+end)
             context.fillText(prefix, x, y)
@@ -141,7 +161,7 @@ class Console
         }
         else {
             //console.log("start: "+this.regionStart+" end: "+this.regionEnd)
-            context.fillText(prompt + this.cmd +this.inputAnimStr, 0, y)
+            context.fillText(prompt + cmd +this.inputAnimStr, 0, y)
         }
         y += textHeightDelta
     }
@@ -192,6 +212,10 @@ function onConsoleKey(event)
         consoleInstance.incRegionStart(1)
     } else if (event.key == "ArrowLeft") {
         consoleInstance.incRegionStart(-1)
+    } else if (event.key == "ArrowUp") {
+        consoleInstance.browseHistory(-1)
+    } else if (event.key == "ArrowDown") {
+        consoleInstance.browseHistory(1)
     } else if (event.key.length == 1 && !event.ctrlKey && !event.altKey) {
         //consoleInstance.cmd += event.key
         consoleInstance.addToCmd(event.key)
