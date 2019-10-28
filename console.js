@@ -20,7 +20,8 @@ class Console
     }
 
     ensureValidRegion(val) {
-        return Math.max(0, Math.min(val, this.cmd.length))
+        let cmd = this.getCmd()
+        return Math.max(0, Math.min(val, cmd.length))
     }
     
     incRegionStart(amount) {
@@ -37,11 +38,20 @@ class Console
             this.regionStart = this.ensureValidRegion(this.regionStart - (amount < 0 ? amount : 0))
             this.regionEnd = this.ensureValidRegion(this.regionStart + amount)
         } else {
-            this.regionEnd = Math.max(0, Math.min(this.regionEnd + amount, this.cmd.length))
+            let cmd = this.getCmd()
+            this.regionEnd = Math.max(0, Math.min(this.regionEnd + amount, cmd.length))
+        }
+    }
+
+    tryToOverrideCmdFromHistory() {
+        if (this.historyBrosweIndex < 0) {
+            this.cmd = this.getCmd()
+            this.historyBrosweIndex = 0
         }
     }
 
     addToCmd(key) {
+        this.tryToOverrideCmdFromHistory()
         this.removeRegionFromCmd(false)
         this.cmd = (this.cmd.substring(0, this.regionStart)
                     + key
@@ -49,12 +59,14 @@ class Console
         ++this.regionStart
     }
 
-    removeRegionFromCmd(shouldRemoveStart = false) {
+    removeRegionFromCmd(shouldRemoveStart = false, goForward = false) {
         if (this.regionEnd == -1 && !shouldRemoveStart)
             return
 
+        this.tryToOverrideCmdFromHistory()
+
         if (this.regionEnd == -1)
-            this.regionEnd = this.ensureValidRegion(this.regionStart-1)
+            this.regionEnd = this.ensureValidRegion(this.regionStart + (goForward ? 1 : -1))
         
         let minRegion = Math.min(this.regionStart, this.regionEnd)
         let maxRegion = Math.max(this.regionStart, this.regionEnd)
@@ -193,20 +205,16 @@ function onConsoleKey(event)
             consoleInstance.incRegionStart(1)
         else if (event.key == "b")
             consoleInstance.incRegionStart(-1)
-    }
-
-    else if (event.shiftKey) {
+    } else if (event.shiftKey) {
         if (event.key == "ArrowRight") {
             consoleInstance.incRegionEnd(1)
         } else if (event.key == "ArrowLeft") {
             consoleInstance.incRegionEnd(-1)
         }
-    }
-    
-    else if (event.key == "Enter") {
+    } else if (event.key == "Enter") {
         consoleInstance.evalCmd()
     } else if (event.key == "Backspace") {
-        consoleInstance.removeRegionFromCmd(true)
+        consoleInstance.removeRegionFromCmd(true, false)
         //consoleInstance.cmd = consoleInstance.cmd.substring(0, Math.max(consoleInstance.cmd.length-1, 0))
     } else if (event.key == "ArrowRight") {
         consoleInstance.incRegionStart(1)
@@ -216,6 +224,8 @@ function onConsoleKey(event)
         consoleInstance.browseHistory(-1)
     } else if (event.key == "ArrowDown") {
         consoleInstance.browseHistory(1)
+    } else if (event.key == "Delete") {
+        consoleInstance.removeRegionFromCmd(true, true)
     } else if (event.key.length == 1 && !event.ctrlKey && !event.altKey) {
         //consoleInstance.cmd += event.key
         consoleInstance.addToCmd(event.key)
