@@ -105,12 +105,12 @@ class Console
 
     evalCmd() {
         const cmd = this.getCmd()
-        this.history.push(cmd)
         if (this.evalFn) {
             this.results.push(this.evalFn(cmd))
         } else {
             this.results.push([])
         }
+        this.history.push(cmd)
         this.cmd = ""
         this.historyBrosweIndex = 0
         this.regionStart = 0
@@ -201,7 +201,6 @@ class Console
 function makeOnConsoleKey(consoleInstance)
 {
     return function (event) {
-        //console.log(event.key)
         if (event.key == "Alt" || event.key == "Control" || event.key == "Shift")
             return
 
@@ -219,6 +218,8 @@ function makeOnConsoleKey(consoleInstance)
                 consoleInstance.incRegionEnd(1)
             } else if (event.key == "ArrowLeft") {
                 consoleInstance.incRegionEnd(-1)
+            } else if (event.key.length == 1 && !event.ctrlKey && !event.altKey) {
+                consoleInstance.addToCmd(event.key)
             }
         } else if (event.key == "Enter") {
             consoleInstance.evalCmd()
@@ -236,7 +237,6 @@ function makeOnConsoleKey(consoleInstance)
         } else if (event.key == "Delete") {
             consoleInstance.removeRegionFromCmd(true, true)
         } else if (event.key.length == 1 && !event.ctrlKey && !event.altKey) {
-            //consoleInstance.cmd += event.key
             consoleInstance.addToCmd(event.key)
         }
         consoleInstance.refresh()
