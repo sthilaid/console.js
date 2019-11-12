@@ -1,13 +1,11 @@
-const bannerMessage = " *** Welcome to super console 0.01c ***"
-const inputAnimDT = 1000
-const prompt = "> "
-const fontSize = 14
-const heightPadding = 2
+// https://github.com/sthilaid/console.js
 
 class Console
 {
-    constructor(evalFn = null)
+    constructor(canvas, context, evalFn = null)
     {
+        this.canvas = canvas
+        this.context = context
         this.regionStart = 0
         this.regionEnd = -1
         this.history = []
@@ -17,6 +15,16 @@ class Console
         this.inputAnimLastTime = 0
         this.inputAnimStr = ""
         this.historyBrosweIndex = 0
+
+        this.bannerMessage = " *** Welcome to super console 0.01c ***"
+        this.inputAnimDT = 1000
+        this.prompt = "> "
+        this.fontSize = 14
+        this.heightPadding = 2
+
+        this.canvas.tabIndex = 1
+        this.canvas.focus()
+        this.canvas.addEventListener("keydown", makeOnConsoleKey(this))
     }
 
     ensureValidRegion(val) {
@@ -110,7 +118,7 @@ class Console
     }
 
     refresh() {
-        if (!canvas || !context)
+        if (!this.canvas || !this.context)
             return
 
         if (this.history.length != this.results.length) {
@@ -119,27 +127,27 @@ class Console
             return
         }
         
-        context.font = fontSize+"px Courier"
-        context.fillStyle = "black"
-        context.fillRect(0, 0, canvas.width, canvas.height)
+        this.context.font = this.fontSize+"px Courier"
+        this.context.fillStyle = "black"
+        this.context.fillRect(0, 0, this.canvas.width, this.canvas.height)
 
-        const textHeightDelta = fontSize + heightPadding
+        const textHeightDelta = this.fontSize + this.heightPadding
         
-        context.fillStyle = "green"
-        var y = fontSize
-        context.fillText(bannerMessage, 0, y)
+        this.context.fillStyle = "green"
+        var y = this.fontSize
+        this.context.fillText(this.bannerMessage, 0, y)
         y += textHeightDelta * 2 // add empty line
 
         for(var i=0; i<this.history.length; ++i) {
-            context.fillText(prompt + this.history[i], 0, y)
+            this.context.fillText(this.prompt + this.history[i], 0, y)
             y += textHeightDelta
             if (Array.isArray(this.results[i])) {
                this.results[i].forEach(result => {
-                    context.fillText(r, 0, y)
+                    this.context.fillText(r, 0, y)
                     y += textHeightDelta
                 })
             } else if (this.results[i] != "") {
-                context.fillText(this.results[i], 0, y)
+                this.context.fillText(this.results[i], 0, y)
                 y += textHeightDelta
             }
         }
@@ -151,35 +159,35 @@ class Console
             const regionEndValid = this.regionEnd != -1
             const start = regionEndValid ? Math.min(this.regionStart, this.regionEnd) : this.regionStart
             const end = regionEndValid ? Math.max(this.regionStart, this.regionEnd) : this.regionStart+1
-            const prefix = prompt + cmd.substring(0, start)
+            const prefix = this.prompt + cmd.substring(0, start)
             const region = cmd.substring(start, end)
             const postfix= cmd.substring(end, cmd.length)
             let x = 0
             //console.log("start: "+start+" end: "+end)
-            context.fillText(prefix, x, y)
-            x += context.measureText(prefix).width
+            this.context.fillText(prefix, x, y)
+            x += this.context.measureText(prefix).width
 
-            const regionWidth = context.measureText(region).width
+            const regionWidth = this.context.measureText(region).width
             if (regionEndValid) {
-                context.fillStyle = "red"
-                context.fillRect(x, y, regionWidth, -fontSize)
+                this.context.fillStyle = "red"
+                this.context.fillRect(x, y, regionWidth, -this.fontSize)
             }
-            context.fillStyle = "yellow"
-            context.fillText(region, x, y)
+            this.context.fillStyle = "yellow"
+            this.context.fillText(region, x, y)
             x += regionWidth
 
-            context.fillStyle = "green"
-            context.fillText(postfix, x, y)
+            this.context.fillStyle = "green"
+            this.context.fillText(postfix, x, y)
         }
         else {
             //console.log("start: "+this.regionStart+" end: "+this.regionEnd)
-            context.fillText(prompt + cmd +this.inputAnimStr, 0, y)
+            this.context.fillText(this.prompt + cmd +this.inputAnimStr, 0, y)
         }
         y += textHeightDelta
     }
 
     step(time) {
-        let shouldChangeState = time - this.inputAnimLastTime > inputAnimDT
+        let shouldChangeState = time - this.inputAnimLastTime > this.inputAnimDT
         if (shouldChangeState) {
             this.inputAnimStr = this.inputAnimStr == "" ? "_" : ""
             this.inputAnimLastTime = time
@@ -190,68 +198,47 @@ class Console
     }
 }
 
-function onConsoleKey(event)
+function makeOnConsoleKey(consoleInstance)
 {
-    //console.log(event.key)
-    if (event.key == "Alt" || event.key == "Control" || event.key == "Shift")
-        return
+    return function (event) {
+        //console.log(event.key)
+        if (event.key == "Alt" || event.key == "Control" || event.key == "Shift")
+            return
 
-    if (event.ctrlKey) {
-        if (event.key == "e")
-            consoleInstance.incRegionStart(99999999)
-        else if (event.key == "a")
-            consoleInstance.incRegionStart(-99999999)
-        else if (event.key == "f")
+        if (event.ctrlKey) {
+            if (event.key == "e")
+                consoleInstance.incRegionStart(99999999)
+            else if (event.key == "a")
+                consoleInstance.incRegionStart(-99999999)
+            else if (event.key == "f")
+                consoleInstance.incRegionStart(1)
+            else if (event.key == "b")
+                consoleInstance.incRegionStart(-1)
+        } else if (event.shiftKey) {
+            if (event.key == "ArrowRight") {
+                consoleInstance.incRegionEnd(1)
+            } else if (event.key == "ArrowLeft") {
+                consoleInstance.incRegionEnd(-1)
+            }
+        } else if (event.key == "Enter") {
+            consoleInstance.evalCmd()
+        } else if (event.key == "Backspace") {
+            consoleInstance.removeRegionFromCmd(true, false)
+            //consoleInstance.cmd = consoleInstance.cmd.substring(0, Math.max(consoleInstance.cmd.length-1, 0))
+        } else if (event.key == "ArrowRight") {
             consoleInstance.incRegionStart(1)
-        else if (event.key == "b")
-            consoleInstance.incRegionStart(-1)
-    } else if (event.shiftKey) {
-        if (event.key == "ArrowRight") {
-            consoleInstance.incRegionEnd(1)
         } else if (event.key == "ArrowLeft") {
-            consoleInstance.incRegionEnd(-1)
+            consoleInstance.incRegionStart(-1)
+        } else if (event.key == "ArrowUp") {
+            consoleInstance.browseHistory(-1)
+        } else if (event.key == "ArrowDown") {
+            consoleInstance.browseHistory(1)
+        } else if (event.key == "Delete") {
+            consoleInstance.removeRegionFromCmd(true, true)
+        } else if (event.key.length == 1 && !event.ctrlKey && !event.altKey) {
+            //consoleInstance.cmd += event.key
+            consoleInstance.addToCmd(event.key)
         }
-    } else if (event.key == "Enter") {
-        consoleInstance.evalCmd()
-    } else if (event.key == "Backspace") {
-        consoleInstance.removeRegionFromCmd(true, false)
-        //consoleInstance.cmd = consoleInstance.cmd.substring(0, Math.max(consoleInstance.cmd.length-1, 0))
-    } else if (event.key == "ArrowRight") {
-        consoleInstance.incRegionStart(1)
-    } else if (event.key == "ArrowLeft") {
-        consoleInstance.incRegionStart(-1)
-    } else if (event.key == "ArrowUp") {
-        consoleInstance.browseHistory(-1)
-    } else if (event.key == "ArrowDown") {
-        consoleInstance.browseHistory(1)
-    } else if (event.key == "Delete") {
-        consoleInstance.removeRegionFromCmd(true, true)
-    } else if (event.key.length == 1 && !event.ctrlKey && !event.altKey) {
-        //consoleInstance.cmd += event.key
-        consoleInstance.addToCmd(event.key)
-    }
-    consoleInstance.refresh()
-}
-
-var consoleInstance = null
-var canvas          = null
-var context         = null
-
-function main()
-{
-    var x=0
-    consoleInstance = new Console(function(cmd){return "["+(x++)+"] "+cmd})
-    canvas = document.getElementById("ConsoleCanvas")
-    if (canvas)
-    {
-        context = canvas.getContext("2d")
-        
-        canvas.tabIndex = 1
-        canvas.focus()
-        canvas.addEventListener("keydown", onConsoleKey)
         consoleInstance.refresh()
-        window.requestAnimationFrame(function(step){consoleInstance.step(step)})
     }
 }
-
-main()
